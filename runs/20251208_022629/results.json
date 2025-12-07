@@ -1,0 +1,8 @@
+{
+  "best_val_seq_acc": 0.7877039862482735,
+  "best_val_char_acc": 0.9186087250709534,
+  "best_val_loss": 1.0850951751966156,
+  "best_score": 0.7259307793950371,
+  "best_epoch": 20,
+  "final_epoch": 35
+}

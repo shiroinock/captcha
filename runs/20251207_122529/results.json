@@ -1,0 +1,6 @@
+{
+  "best_val_seq_acc": 0.8026267390572623,
+  "best_val_char_acc": 0.922314751683996,
+  "best_epoch": 100,
+  "final_epoch": 100
+}

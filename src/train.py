@@ -1,5 +1,4 @@
 import argparse
-import csv
 import json
 from datetime import datetime
 from pathlib import Path
@@ -91,6 +90,8 @@ def save_results_summary(run_dir: Path, best_metrics: dict, final_epoch: int):
     summary = {
         "best_val_seq_acc": best_metrics["val_seq_acc"],
         "best_val_char_acc": best_metrics["val_char_acc"],
+        "best_val_loss": best_metrics.get("val_loss"),
+        "best_score": best_metrics.get("score"),
         "best_epoch": best_metrics["epoch"],
         "final_epoch": final_epoch,
     }
@@ -102,8 +103,9 @@ def save_results_summary(run_dir: Path, best_metrics: dict, final_epoch: int):
     print("Training Summary")
     print("=" * 50)
     print(f"Run directory: {run_dir}")
-    print(f"Best Val Seq Acc: {best_metrics['val_seq_acc']:.4f} (epoch {best_metrics['epoch']})")
-    print(f"Best Val Char Acc: {best_metrics['val_char_acc']:.4f}")
+    print(f"Best Score: {best_metrics.get('score', 0):.4f} (epoch {best_metrics['epoch']})")
+    print(f"Best Val Seq Acc: {best_metrics['val_seq_acc']:.4f}")
+    print(f"Best Val Loss: {best_metrics.get('val_loss', 0):.4f}")
     print(f"Total epochs: {final_epoch}")
     print("=" * 50)
 
@@ -237,7 +239,7 @@ def main():
         "--save-dir", type=str, default="models", help="Directory to save models"
     )
     parser.add_argument(
-        "--label-smoothing", type=float, default=0.05, help="Label smoothing factor"
+        "--label-smoothing", type=float, default=0.1, help="Label smoothing factor"
     )
     parser.add_argument(
         "--focal-loss", action="store_true", help="Use Focal Loss for hard examples"
@@ -332,17 +334,12 @@ def main():
         "gpu_name": torch.cuda.get_device_name(0) if device.type == "cuda" else None,
     })
 
-    # Initialize CSV logger
-    csv_path = run_dir / "history.csv"
-    csv_file = open(csv_path, "w", newline="")
-    csv_writer = csv.DictWriter(csv_file, fieldnames=[
-        "epoch", "train_loss", "train_char_acc", "train_seq_acc",
-        "val_loss", "val_char_acc", "val_seq_acc", "lr"
-    ])
-    csv_writer.writeheader()
+    # Initialize JSONL logger
+    jsonl_path = run_dir / "history.jsonl"
+    jsonl_file = open(jsonl_path, "w")
 
     history = []
-    best_seq_acc = 0.0
+    best_score = 0.0
     best_metrics = {}
     patience_counter = 0
 
@@ -356,7 +353,7 @@ def main():
         current_lr = optimizer.param_groups[0]["lr"]
         scheduler.step()
 
-        # Log to CSV
+        # Log to JSONL
         row = {
             "epoch": epoch + 1,
             "train_loss": train_loss,
@@ -367,8 +364,8 @@ def main():
             "val_seq_acc": val_seq_acc,
             "lr": current_lr,
         }
-        csv_writer.writerow(row)
-        csv_file.flush()
+        jsonl_file.write(json.dumps(row) + "\n")
+        jsonl_file.flush()
         history.append(row)
 
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -378,25 +375,31 @@ def main():
             f"Val Loss: {val_loss:.4f}, Char: {val_char_acc:.4f}, Seq: {val_seq_acc:.4f}"
         )
 
-        if val_seq_acc > best_seq_acc:
-            best_seq_acc = val_seq_acc
+        # Combined score: accuracy / loss (higher is better)
+        # This balances both metrics - rewards high accuracy and low loss
+        score = val_seq_acc / val_loss
+
+        if score > best_score:
+            best_score = score
             best_metrics = {
                 "epoch": epoch + 1,
                 "val_seq_acc": val_seq_acc,
                 "val_char_acc": val_char_acc,
+                "val_loss": val_loss,
+                "score": score,
             }
             patience_counter = 0
             # Save to both run_dir and save_dir
             torch.save(model.state_dict(), run_dir / "best_model.pt")
             torch.save(model.state_dict(), save_dir / "best_model.pt")
-            print(f"  -> Saved best model (seq_acc: {best_seq_acc:.4f})")
+            print(f"  -> Saved best model (score: {score:.4f}, seq_acc: {val_seq_acc:.4f}, loss: {val_loss:.4f})")
         else:
             patience_counter += 1
             if patience_counter >= args.patience:
                 print(f"\nEarly stopping triggered after {epoch + 1} epochs")
                 break
 
-    csv_file.close()
+    jsonl_file.close()
 
     # Save final model
     torch.save(model.state_dict(), run_dir / "final_model.pt")

@@ -43,10 +43,10 @@ class CRNN(nn.Module):
             num_layers=2,
             batch_first=True,
             bidirectional=True,
-            dropout=0.3,
+            dropout=0.4,
         )
 
-        self.dropout = nn.Dropout(0.3)
+        self.dropout = nn.Dropout(0.5)
         self.fc = nn.Linear(512, num_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
