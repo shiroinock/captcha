@@ -1,0 +1,24 @@
+[project]
+name = "captcha-ocr"
+version = "0.1.0"
+description = "CAPTCHA OCR model for real-time inference"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.0",
+    "torchvision",
+    "opencv-python",
+    "albumentations",
+]
+
+[project.optional-dependencies]
+export = [
+    "onnx",
+    "onnxsim",
+]
+dev = [
+    "pytest",
+]
+
+[tool.uv]
+index-url = "https://download.pytorch.org/whl/cu118"
+extra-index-url = "https://pypi.org/simple"

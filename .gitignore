@@ -1,0 +1,13 @@
+images/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.onnx
+*.trt
+*.pt
+wandb/
